@@ -1,0 +1,6 @@
+@Magazzino_HostAddress = http://localhost:5260
+
+GET {{Magazzino_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
