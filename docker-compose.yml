@@ -1,0 +1,35 @@
+services:
+  magazzino-db:
+    image: postgres:15
+    container_name: magazzino-db
+    environment:
+      - POSTGRES_USER=magazzino_user
+      - POSTGRES_PASSWORD=p4ssw0rD
+      - POSTGRES_DB=magazzino_db
+    ports:
+      - "2433:5432"  # Mappa la porta 2433 dell'host alla porta 5432 del container
+    volumes:
+      - magazzino-data:/var/lib/postgresql/data  # Persistenza dei dati
+    networks:
+      - my-network
+
+  adminer:
+    image: adminer:4.8.1
+    container_name: adminer
+    ports:
+      - "2431:8080"  # Mappa la porta 2431 dell'host alla porta 8080 del container
+    environment:
+      TZ: Europe/Rome
+      ADMINER_DEFAULT_SERVER: magazzino-db  # Nome del container PostgreSQL
+    networks:
+      - my-network
+
+networks:
+  my-network:
+    external: true
+
+volumes:
+  magazzino-data:
+  fornitore-data:
+  pagamento-data:
+  store-data:
