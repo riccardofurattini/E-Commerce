@@ -1,7 +1,10 @@
-﻿using Magazzino.Shared;
+﻿using Magazzino.Repository;
+using Magazzino.Shared;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using Npgsql;
+using System.Data.Common;
 
 namespace Magazzino.WebApi
 {
@@ -9,80 +12,155 @@ namespace Magazzino.WebApi
     [ApiController]
     public class Items : ControllerBase
     {
-        private static readonly List<ItemDto> items = new()
-        {
-            new ItemDto(Guid.NewGuid(),"Mele","Frutta",1.99,250),
-            new ItemDto(Guid.NewGuid(),"Pere","Frutta",1.50,400),
-            new ItemDto(Guid.NewGuid(),"Fragole","Frutta",2.99,100)
-        };
+        // Crea l'istanza della connessione
+        ItemsConnection connection = new ItemsConnection();
+
 
         [HttpGet]
-        public IEnumerable<ItemDto> Get()
+        public async Task<IActionResult> Get()
         {
-            return items;
+            List<Item> items = await connection.GetItemsAsync();
+
+            // Trasforma la lista di Item in ItemDto
+            var itemsDto = items.Select(item => new ItemDto(item.Id, item.Nome, item.Descrizione, item.Prezzo, item.Quantita)).ToList();
+
+            // Restituisci la lista di ItemDto come una risposta JSON
+            return Ok(itemsDto);
         }
 
+
+
         [HttpGet("{id}")]
-        public ActionResult<ItemDto> GetById(Guid id)
+        public async Task<ActionResult<ItemDto>> GetById(Guid id)
         {
-            var item = items.Where(item=> item.Id == id).FirstOrDefault();
+            // Recupera l'articolo dal database
+            var item = await connection.GetItemById(id); 
 
             if (item == null)
             {
-                return NotFound();
+                return NotFound(); // Se l'articolo non esiste, restituisci NotFound
             }
 
-            return item;
-            
+            // Mappa l'oggetto Item in un ItemDto
+            var itemDto = new ItemDto(item.Id, item.Nome, item.Descrizione, item.Prezzo, item.Quantita);
+
+            // Restituisci l'ItemDto trovato
+            return Ok(itemDto);
         }
+
 
         [HttpPost]
-        public ActionResult<ItemDto> Post(CreateItemDto createItemDto)
+        public async Task<ActionResult<ItemDto>> Post(CreateItemDto createItemDto)
         {
-            var item = new ItemDto(Guid.NewGuid(), createItemDto.Nome, createItemDto.Descrizione, createItemDto.Prezzo, createItemDto.Quantita);
-            items.Add(item);
+            // Validazione del modello
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
 
-            return CreatedAtAction(nameof(GetById), new {id = item.Id}, item);
+            // Mappatura da CreateItemDto a Item
+            var item = new Item
+            {
+                Id = Guid.NewGuid(),
+                Nome = createItemDto.Nome,
+                Descrizione = createItemDto.Descrizione,
+                Prezzo = createItemDto.Prezzo,
+                Quantita = createItemDto.Quantita
+            };
+
+            try
+            {
+                // Salva l'item nel database in modo asincrono
+                await connection.AddItemAsync(item);
+
+                // Mappa l'oggetto Item in ItemDto per la risposta
+                var itemDto = new ItemDto(item.Id, item.Nome, item.Descrizione, item.Prezzo, item.Quantita);
+
+                // Restituisci un "Created" con la locazione dell'oggetto appena creato
+                return CreatedAtAction(nameof(GetById), new { id = item.Id }, itemDto);
+            }
+            catch (Exception ex)
+            {
+                // Gestione degli errori (nel caso di errore durante il salvataggio)
+                Console.WriteLine($"Errore durante il salvataggio dell'articolo: {ex.Message}");
+                return StatusCode(500, "Errore interno del server"); // Risposta 500 in caso di errore
+            }
         }
+
+
 
         [HttpPut("{id}")]
-        public IActionResult Put(Guid id, UpdateItemDto updateItemDto)
+        public async Task<IActionResult> Put(Guid id, UpdateItemDto updateItemDto)
         {
-            var existingItem =  items.Where(item => item.Id == id).FirstOrDefault();
-
-            if (existingItem == null)
+            // Verifica che il modello sia valido
+            if (!ModelState.IsValid)
             {
-                return NotFound();
+                return BadRequest(ModelState);
             }
 
-            var updateItem = existingItem with
+            try
             {
-                Nome = updateItemDto.Nome,
-                Descrizione = updateItemDto.Descrizione,
-                Prezzo = updateItemDto.Prezzo,
-                Quantita = updateItemDto.Quantita
-            };
-            var index = items.FindIndex(existingItem =>  existingItem.Id == id);
-            items[index] = updateItem;
+                // Recupera l'item esistente dal database
+                var existingItem = await connection.GetItemById(id);
 
-            return NoContent();
+                // Se l'item non esiste, restituisce NotFound
+                if (existingItem == null)
+                {
+                    return NotFound();
+                }
+
+                // Applica le modifiche
+                existingItem.Nome = updateItemDto.Nome;
+                existingItem.Descrizione = updateItemDto.Descrizione;
+                existingItem.Prezzo = updateItemDto.Prezzo;
+                existingItem.Quantita = updateItemDto.Quantita;
+
+                // Salva le modifiche nel database in modo asincrono
+                await connection.UpdateItemAsync(existingItem);
+
+                // Restituisce NoContent se l'operazione è andata a buon fine
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                // Gestione degli errori in caso di problemi nel processo
+                Console.WriteLine($"Errore durante l'aggiornamento dell'articolo: {ex.Message}");
+                return StatusCode(500, "Errore interno del server");
+            }
         }
+
+
 
         [HttpDelete("{id}")]
-        public IActionResult Delete(Guid id)
+        public async Task<IActionResult> Delete(Guid id)
         {
-            var index = items.FindIndex(existingItem => existingItem.Id == id);
-
-            if (index < 0)
+            try
             {
-                return NotFound();
+                // Recupera l'item esistente dal database
+                var existingItem = await connection.GetItemById(id);
+
+                // Se l'item non esiste, restituisce NotFound
+                if (existingItem == null)
+                {
+                    return NotFound();
+                }
+
+                // Rimuovi l'item dal database
+                await connection.DeleteItemAsync(id);
+
+                // Restituisci NoContent se l'operazione è andata a buon fine
+                return Ok();
             }
-
-            items.RemoveAt(index);
-
-            return NoContent();
+            catch (Exception ex)
+            {
+                // Gestione degli errori in caso di problemi nel processo
+                Console.WriteLine($"Errore durante la cancellazione dell'articolo: {ex.Message}");
+                return StatusCode(500, "Errore interno del server");
+            }
         }
+
+
     }
 
-    
+
 }
