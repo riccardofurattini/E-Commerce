@@ -1,9 +1,11 @@
 {
   "version": 2,
-  "dgSpecHash": "uDlTuvZwkvzqupNgQWgRx3XRSZUTpyaS2QdL8S77PW43QQSj3ZRJKX3+JENDXaf1Zb41zDa1PSG59ptGgmzi2A==",
+  "dgSpecHash": "P1cTzvkplUiGm85QC7hQ+PdEeKlOUZUDdKpIrU9HXC5URlcoVQcmE0zfz5FlXmj5bR415lPwJigRFBDLn7JizQ==",
   "success": true,
   "projectFilePath": "C:\\Users\\Riccardo\\Desktop\\E-Commerce\\Pagamento\\Pagamento.csproj",
   "expectedPackageFiles": [
+    "C:\\Users\\Riccardo\\.nuget\\packages\\confluent.kafka\\2.6.1\\confluent.kafka.2.6.1.nupkg.sha512",
+    "C:\\Users\\Riccardo\\.nuget\\packages\\librdkafka.redist\\2.6.1\\librdkafka.redist.2.6.1.nupkg.sha512",
     "C:\\Users\\Riccardo\\.nuget\\packages\\microsoft.extensions.apidescription.server\\6.0.5\\microsoft.extensions.apidescription.server.6.0.5.nupkg.sha512",
     "C:\\Users\\Riccardo\\.nuget\\packages\\microsoft.openapi\\1.2.3\\microsoft.openapi.1.2.3.nupkg.sha512",
     "C:\\Users\\Riccardo\\.nuget\\packages\\microsoft.visualstudio.azure.containers.tools.targets\\1.19.5\\microsoft.visualstudio.azure.containers.tools.targets.1.19.5.nupkg.sha512",

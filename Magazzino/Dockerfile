@@ -7,10 +7,13 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["Magazzino/Magazzino.csproj", "Magazzino/"]
-RUN dotnet restore "./Magazzino/./Magazzino.csproj"
+
+COPY ["/Magazzino.csproj", "./"]
+RUN dotnet restore "./Magazzino.csproj"
+
 COPY . .
-WORKDIR "/src/Magazzino"
+
+WORKDIR "/src"
 RUN dotnet build "./Magazzino.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 FROM build AS publish

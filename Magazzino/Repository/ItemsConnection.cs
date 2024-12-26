@@ -1,12 +1,5 @@
 ﻿using Magazzino.Shared;
-using Magazzino.WebApi;
-using Microsoft.Data.SqlClient;
 using Npgsql;
-using System;
-using System.Collections.Generic;
-using System.Data.Common;
-using System.Threading.Tasks;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
 namespace Magazzino.Repository
 {

@@ -40,17 +40,17 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "dependencies": {
-            "Microsoft.Data.SqlClient": {
+            "Confluent.Kafka": {
               "target": "Package",
-              "version": "[5.2.2, )"
+              "version": "[2.6.1, )"
             },
             "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": {
               "target": "Package",
               "version": "[1.19.5, )"
             },
-            "MongoDB.Driver": {
+            "Newtonsoft.Json": {
               "target": "Package",
-              "version": "[3.1.0, )"
+              "version": "[13.0.3, )"
             },
             "Npgsql": {
               "target": "Package",

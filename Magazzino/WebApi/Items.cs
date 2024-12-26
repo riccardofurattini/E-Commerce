@@ -1,10 +1,6 @@
 ﻿using Magazzino.Repository;
 using Magazzino.Shared;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
-using Npgsql;
-using System.Data.Common;
 
 namespace Magazzino.WebApi
 {
