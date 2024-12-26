@@ -202,6 +202,37 @@ namespace Magazzino.Repository
         }
 
 
+        public void InitializeDatabase()
+        {
+            using (var connection = new NpgsqlConnection(connectionString))
+            {
+                connection.Open();
+
+                string createTableQuery = @"
+                CREATE TABLE IF NOT EXISTS items (
+                    Id UUID PRIMARY KEY,
+                    Nome VARCHAR(100),
+                    Descrizione VARCHAR(255),
+                    Prezzo DOUBLE PRECISION,
+                    Quantita INT
+                );
+
+                INSERT INTO items (Id, Nome, Descrizione, Prezzo, Quantita)
+                VALUES
+                    ('d4d1f8b7-8f2f-4c42-bb4d-f0d028cf9b3f', 'Mele', 'Frutta', 0.99, 500),
+                    ('cb1a7c1e-559a-4de7-9a42-b388db30a4a1', 'Pere', 'Frutta', 1.50, 400),
+                    ('e4c87b13-b19b-4ff2-95b8-d8306f16c0a7', 'Banane', 'Frutta', 2.50, 700)
+                ON CONFLICT DO NOTHING;  
+            ";
+
+                using (var command = new NpgsqlCommand(createTableQuery, connection))
+                {
+                    command.ExecuteNonQuery(); // Esegui la query
+                }
+            }
+        }
+
+
         // Dispose per chiudere correttamente la connessione
         public void Dispose()
         {

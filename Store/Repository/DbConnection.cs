@@ -87,6 +87,35 @@ namespace Store.Repository
         }
 
 
+        public void InitializeDatabase()
+        {
+            using (var connection = new NpgsqlConnection(connectionString))
+            {
+                connection.Open();
+
+                string createTablesQuery = @"
+                CREATE TABLE IF NOT EXISTS articoli (
+                    Id UUID PRIMARY KEY,  
+                    Nome VARCHAR(100) NOT NULL,    
+                    Descrizione VARCHAR(255),  
+                    Prezzo NUMERIC(10, 2) NOT NULL  -- Precisione per rappresentare importi monetari
+                );
+
+                CREATE TABLE IF NOT EXISTS carrello (
+                    IdUtente UUID NOT NULL,
+                    IdCarrello UUID PRIMARY KEY,
+                    IdArticolo UUID NOT NULL REFERENCES articoli(Id),   
+                    Quantita INT NOT NULL
+                );
+            ";
+
+                using (var command = new NpgsqlCommand(createTablesQuery, connection))
+                {
+                    command.ExecuteNonQuery(); // Esegui la query
+                }
+            }
+        }
+
         // Dispose per chiudere correttamente la connessione
         public void Dispose()
         {

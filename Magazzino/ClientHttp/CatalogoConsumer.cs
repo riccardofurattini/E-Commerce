@@ -17,7 +17,7 @@ namespace Magazzino.ClientHttp
             var configConsumer = new ConsumerConfig
             {
                 GroupId = "magazzino-group",
-                BootstrapServers = "kafka:9093",
+                BootstrapServers = "kafka:9092",
                 AutoOffsetReset = AutoOffsetReset.Earliest
             };
             _consumer = new ConsumerBuilder<string, string>(configConsumer).Build();
@@ -25,7 +25,7 @@ namespace Magazzino.ClientHttp
             // Configurazione Kafka per il Producer (per inviare la risposta)
             var configProducer = new ProducerConfig
             {
-                BootstrapServers = "kafka:9093" // Indirizzo del server Kafka
+                BootstrapServers = "kafka:9092" // Indirizzo del server Kafka
             };
             _producer = new ProducerBuilder<string, string>(configProducer).Build();
         }

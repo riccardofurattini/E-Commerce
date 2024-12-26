@@ -59,6 +59,23 @@ services:
       - my-network
     restart: always  # servizio verrà riavviato in caso di crash
 
+  store:
+    build:
+      context: ./Store  # Specifica il contesto come la cartella Magazzino
+      dockerfile: Dockerfile  # Questo è il nome del Dockerfile all'interno di Magazzino (puoi ometterlo se è il nome predefinito "Dockerfile")
+    container_name: store
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: "http://+:8080"  # Configura l'URL di ascolto per il container
+      
+    ports:
+      - "8081:8080"  
+    depends_on:
+      - store-db  
+    networks:
+      - my-network
+    restart: always  # servizio verrà riavviato in caso di crash
+
   zookeeper:
     container_name: zookeeper
     image: 'bitnami/zookeeper:3.9.0'
@@ -89,7 +106,7 @@ services:
 
 networks:
   my-network:
-    external: true  # Usa una rete Docker esistente o definiscila come desiderato
+    external: true
 
 volumes:
   magazzino-data:

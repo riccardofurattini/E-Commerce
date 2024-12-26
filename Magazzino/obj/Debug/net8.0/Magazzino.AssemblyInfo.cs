@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Magazzino")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+68df9b56ff4532dbb89edff06a6f702436c0a38c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d08627161df20919d68df74c94c3e173a56e78c2")]
 [assembly: System.Reflection.AssemblyProductAttribute("Magazzino")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Magazzino")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

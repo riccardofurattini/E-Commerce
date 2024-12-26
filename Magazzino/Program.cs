@@ -1,4 +1,5 @@
 using Magazzino.ClientHttp;
+using Magazzino.Repository;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,8 +23,10 @@ if (app.Environment.IsDevelopment())
 
 }
 
+ItemsConnection itemsConnection = new ItemsConnection();
+itemsConnection.InitializeDatabase();
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 app.UseAuthorization();
 

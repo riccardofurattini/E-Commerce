@@ -16,7 +16,7 @@ namespace Store.ClientHttp
             // Configurazione Kafka per il Producer
             var configProducer = new ProducerConfig
             {
-                BootstrapServers = "kafka:9093" // Indirizzo del server Kafka
+                BootstrapServers = "kafka:9092" // Indirizzo del server Kafka
             };
             _producer = new ProducerBuilder<string, string>(configProducer).Build();
 
@@ -24,7 +24,7 @@ namespace Store.ClientHttp
             var configConsumer = new ConsumerConfig
             {
                 GroupId = "store-group",
-                BootstrapServers = "kafka:9093",
+                BootstrapServers = "kafka:9092",
                 AutoOffsetReset = AutoOffsetReset.Earliest
             };
             _consumer = new ConsumerBuilder<string, string>(configConsumer).Build();
