@@ -25,8 +25,7 @@ CREATE TABLE articoli (
 );
 
 CREATE TABLE carrello (
-    IdUtente UUID NOT NULL,
-    IdCarrello UUID PRIMARY KEY,
-    IdArticolo UUID NOT NULL REFERENCES articoli(Id),   
+    IdCarrello UUID NOT NULL,
+    IdArticolo UUID NOT NULL REFERENCES articoli(Id) UNIQUE,   
     Quantita INT NOT NULL
 );

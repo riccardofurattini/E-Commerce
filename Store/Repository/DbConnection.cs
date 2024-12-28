@@ -95,6 +95,51 @@ namespace Store.Repository
             }
         }
 
+        public async Task<Articolo> GetArticoloById(Guid id)
+        {
+            Articolo item = null; // Inizializza item a null in caso di errore
+            try
+            {
+                if (connection.State != System.Data.ConnectionState.Open)
+                {
+                    await connection.OpenAsync(); // Apri la connessione solo se non è già aperta
+                    Console.WriteLine("Connesso con successo al database");
+                }
+
+
+                // Eseguire una query per selezionare un articolo in base all'ID
+                using (var cmd = new NpgsqlCommand("SELECT Id, Nome, Descrizione, Prezzo FROM articoli WHERE Id = @Id", connection))
+                {
+                    // Aggiungi il parametro per evitare SQL Injection
+                    cmd.Parameters.AddWithValue("@Id", id);
+
+                    // Esegui la query in modalità asincrona
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        // Verifica se la query ha restituito almeno una riga
+                        if (await reader.ReadAsync())
+                        {
+                            // Leggi i dati restituiti dalla query
+                            item = new Articolo
+                            {
+                                Id = reader.GetGuid(reader.GetOrdinal("Id")),
+                                Nome = reader.GetString(reader.GetOrdinal("Nome")),
+                                Descrizione = reader.GetString(reader.GetOrdinal("Descrizione")),
+                                Prezzo = reader.GetDouble(reader.GetOrdinal("Prezzo"))
+                            };
+                        }
+                    }
+                }
+
+                return item;
+            }
+            catch (Exception ex)
+            {
+                // Gestire eventuali errori di connessione
+                Console.WriteLine($"Errore di connessione: {ex.Message}");
+                return null; // Restituisci null se c'è un errore
+            }
+        }
 
         public void InitializeDatabase()
         {
@@ -111,19 +156,17 @@ namespace Store.Repository
                 );
 
                 CREATE TABLE IF NOT EXISTS carrello (
-                    IdUtente UUID NOT NULL,
-                    IdCarrello UUID PRIMARY KEY,
-                    IdArticolo UUID NOT NULL REFERENCES articoli(Id),   
+                    IdCarrello UUID NOT NULL,
+                    IdArticolo UUID NOT NULL REFERENCES articoli(Id) UNIQUE,   
                     Quantita INT NOT NULL
-                );
-            ";
+                );";
 
                 using (var command = new NpgsqlCommand(createTablesQuery, connection))
                 {
                     command.ExecuteNonQuery(); // Esegui la query
                 }
             }
-            Dispose();
+            
         }
 
         // Dispose per chiudere correttamente la connessione
@@ -131,5 +174,248 @@ namespace Store.Repository
         {
             connection?.Dispose();
         }
+
+        //metodi per gestire il carrello
+
+        public async Task<List<Articolo>> GetCarrelli()
+        {
+            var articoli = new List<Articolo>(); // Lista da restituire
+            try
+            {
+                if (connection.State != System.Data.ConnectionState.Open)
+                {
+                    await connection.OpenAsync(); // Apri la connessione solo se non è già aperta
+                    Console.WriteLine("Connesso con successo al database");
+                }
+
+
+                // Eseguire una query per selezionare tutti gli articoli
+                using (var cmd = new NpgsqlCommand("SELECT Id FROM carrello GROUP BY Id", connection))
+                {
+                    // Esegui la query in modalità asincrona
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        // Leggere i dati restituiti dalla query
+                        while (await reader.ReadAsync()) // Usa ReadAsync per la lettura asincrona
+                        {
+                            // Creare un nuovo oggetto Item per ogni riga
+                            var articolo = new Articolo
+                            {
+                                Id = reader.GetGuid(reader.GetOrdinal("Id"))
+                            };
+
+                            // Aggiungere l'oggetto Item alla lista
+                            articoli.Add(articolo);
+                        }
+                    }
+                }
+                
+                return articoli; // Restituisci la lista di oggetti Item
+            }
+            catch (Exception ex)
+            {
+                // Gestire eventuali errori di connessione
+                Console.WriteLine($"Errore di connessione: {ex.Message}");
+                return null;
+            }
+        }
+
+
+
+        public async Task<bool> EsisteCarrello(Guid idCarrello)
+        {
+            try
+            {
+                if (connection.State != System.Data.ConnectionState.Open)
+                {
+                    await connection.OpenAsync(); // Apri la connessione solo se non è già aperta
+                    Console.WriteLine("Connesso con successo al database");
+                }
+
+                // Verifica se il carrello esiste
+                var query = "SELECT COUNT(*) FROM carrello WHERE IdCarrello = @IdCarrello";
+                using (var command = new NpgsqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("IdCarrello", idCarrello);
+                    var result = (long)await command.ExecuteScalarAsync(); // Conta le righe che corrispondono
+                    return result > 0; // Se il risultato è maggiore di 0, il carrello esiste
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Errore di connessione: {ex.Message}");
+                return false;
+            }
+        }
+
+
+
+        public async Task<bool> DeleteCarrello(Guid idCarrello)
+        {
+            try
+            {
+                if (connection.State != System.Data.ConnectionState.Open)
+                {
+                    await connection.OpenAsync(); // Apri la connessione solo se non è già aperta
+                    Console.WriteLine("Connesso con successo al database");
+                }
+
+                // Elimina il carrello dal database
+                var query = "DELETE FROM carrello WHERE IdCarrello = @IdCarrello";
+                using (var command = new NpgsqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("IdCarrello", idCarrello);
+                    var rowsAffected = await command.ExecuteNonQueryAsync();
+                    return rowsAffected > 0; // Restituisce true se il carrello è stato eliminato
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Errore di connessione: {ex.Message}");
+                return false;
+            }
+        }
+
+
+        public async Task<bool> AddArticoloById(Guid idCarrello, Guid idArticolo, int quantita)
+        {
+            try
+            {
+                
+
+                // Aggiungi l'articolo al carrello
+                if (connection.State != System.Data.ConnectionState.Open)
+                {
+                    await connection.OpenAsync(); // Apri la connessione solo se non è già aperta
+                    Console.WriteLine("Connesso con successo al database");
+                }
+
+                var query = "INSERT INTO carrello (IdCarrello, IdArticolo, Quantita) VALUES (@IdCarrello, @IdArticolo, @Quantita)";
+                using (var command = new NpgsqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("IdCarrello", idCarrello);
+                    command.Parameters.AddWithValue("IdArticolo", idArticolo);
+                    command.Parameters.AddWithValue("Quantita", quantita);
+                    var rowsAffected = await command.ExecuteNonQueryAsync();
+                    return rowsAffected > 0; // Restituisce true se l'articolo è stato aggiunto
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Errore di connessione: {ex.Message}");
+                return false;
+            }
+        }
+
+        public async Task<List<Articolo>> GetArticoliByCarrello(Guid idCarrello)
+        {
+            var articoli = new List<Articolo>(); // Lista da restituire
+            try
+            {
+                if (connection.State != System.Data.ConnectionState.Open)
+                {
+                    await connection.OpenAsync(); // Apri la connessione solo se non è già aperta
+                    Console.WriteLine("Connesso con successo al database");
+                }
+
+                // Esegui una query per ottenere gli articoli del carrello
+                using (var cmd = new NpgsqlCommand(@"
+                    SELECT a.Id, a.Nome, a.Descrizione, a.Prezzo
+                    FROM articoli a
+                    JOIN carrello c ON c.IdArticolo = a.Id
+                    WHERE c.IdCarrello = @IdCarrello", connection))
+                {
+                    // Aggiungi il parametro per evitare SQL Injection
+                    cmd.Parameters.AddWithValue("@IdCarrello", idCarrello);
+
+                    // Esegui la query in modalità asincrona
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        // Leggere i dati restituiti dalla query
+                        while (await reader.ReadAsync()) // Usa ReadAsync per la lettura asincrona
+                        {
+                            // Creare un nuovo oggetto Articolo per ogni riga
+                            var articolo = new Articolo
+                            {
+                                Id = reader.GetGuid(reader.GetOrdinal("Id")),
+                                Nome = reader.GetString(reader.GetOrdinal("Nome")),
+                                Descrizione = reader.IsDBNull(reader.GetOrdinal("Descrizione")) ? null : reader.GetString(reader.GetOrdinal("Descrizione")),
+                                Prezzo = reader.GetDouble(reader.GetOrdinal("Prezzo"))
+                            };
+
+                            // Aggiungere l'oggetto Articolo alla lista
+                            articoli.Add(articolo);
+                        }
+                    }
+                }
+
+                return articoli; // Restituisci la lista di articoli
+            }
+            catch (Exception ex)
+            {
+                // Gestire eventuali errori di connessione
+                Console.WriteLine($"Errore di connessione: {ex.Message}");
+                return null;
+            }
+        }
+
+
+        public async Task<bool> EditCarrello(Guid idCarrello, Guid idArticolo, int quantita)
+        {
+            try
+            {
+                if (connection.State != System.Data.ConnectionState.Open)
+                {
+                    await connection.OpenAsync(); // Apri la connessione solo se non è già aperta
+                    Console.WriteLine("Connesso con successo al database");
+                }
+
+                // Modifica la quantità dell'articolo nel carrello
+                var query = "UPDATE carrello SET Quantita = @Quantita WHERE IdCarrello = @IdCarrello AND IdArticolo = @IdArticolo";
+                using (var command = new NpgsqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("IdCarrello", idCarrello);
+                    command.Parameters.AddWithValue("IdArticolo", idArticolo);
+                    command.Parameters.AddWithValue("Quantita", quantita);
+                    var rowsAffected = await command.ExecuteNonQueryAsync();
+                    return rowsAffected > 0; // Restituisce true se la quantità è stata aggiornata
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Errore di connessione: {ex.Message}");
+                return false;
+            }
+        }
+
+
+        public async Task<bool> DeleteArticolo(Guid idCarrello, Guid idArticolo)
+        {
+            try
+            {
+                if (connection.State != System.Data.ConnectionState.Open)
+                {
+                    await connection.OpenAsync(); // Apri la connessione solo se non è già aperta
+                    Console.WriteLine("Connesso con successo al database");
+                }
+
+                // Elimina l'articolo dal carrello
+                var query = "DELETE FROM carrello WHERE IdCarrello = @IdCarrello AND IdArticolo = @IdArticolo";
+                using (var command = new NpgsqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("IdCarrello", idCarrello);
+                    command.Parameters.AddWithValue("IdArticolo", idArticolo);
+                    var rowsAffected = await command.ExecuteNonQueryAsync();
+                    return rowsAffected > 0; // Restituisce true se l'articolo è stato eliminato
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Errore di connessione: {ex.Message}");
+                return false;
+            }
+        }
+
+
     }
 }

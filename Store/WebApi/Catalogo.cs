@@ -25,5 +25,24 @@ namespace Store.WebApi
             // Restituisci la lista di ItemDto come una risposta JSON
             return Ok(articoliDto);
         }
+
+        [HttpGet("{id}")]
+        public async Task<ActionResult<ArticoloDto>> GetById(Guid id)
+        {
+            // Recupera l'articolo dal database
+            var item = await connection.GetArticoloById(id);
+
+            if (item == null)
+            {
+                return NotFound(); // Se l'articolo non esiste, restituisci NotFound
+            }
+
+            // Mappa l'oggetto Item in un ItemDto
+            var itemDto = new ArticoloDto(item.Id, item.Nome, item.Descrizione, item.Prezzo);
+
+            
+            // Restituisci l'ItemDto trovato
+            return Ok(itemDto);
+        }
     }
 }
