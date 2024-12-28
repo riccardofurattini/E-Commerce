@@ -1,4 +1,5 @@
-﻿using Magazzino.Repository;
+﻿using Magazzino.ClientHttp;
+using Magazzino.Repository;
 using Magazzino.Shared;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,6 +11,7 @@ namespace Magazzino.WebApi
     {
         // Crea l'istanza della connessione
         ItemsConnection connection = new ItemsConnection();
+        MagazzinoProducer magazzino = new MagazzinoProducer();
 
 
         [HttpGet]
@@ -19,6 +21,17 @@ namespace Magazzino.WebApi
 
             // Trasforma la lista di Item in ItemDto
             var itemsDto = items.Select(item => new ItemDto(item.Id, item.Nome, item.Descrizione, item.Prezzo, item.Quantita)).ToList();
+
+
+            try
+            {
+                await magazzino.SendItemsListAsync();
+                Console.WriteLine("store_db aggiornato con successo.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Errore durante l'aggiornamento di store_db: {ex.Message}");
+            }
 
             // Restituisci la lista di ItemDto come una risposta JSON
             return Ok(itemsDto);
@@ -39,6 +52,17 @@ namespace Magazzino.WebApi
 
             // Mappa l'oggetto Item in un ItemDto
             var itemDto = new ItemDto(item.Id, item.Nome, item.Descrizione, item.Prezzo, item.Quantita);
+
+            try
+            {
+                await magazzino.SendItemsListAsync();
+                Console.WriteLine("store_db aggiornato con successo.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Errore durante l'aggiornamento di store_db: {ex.Message}");
+            }
+
 
             // Restituisci l'ItemDto trovato
             return Ok(itemDto);
@@ -71,6 +95,16 @@ namespace Magazzino.WebApi
 
                 // Mappa l'oggetto Item in ItemDto per la risposta
                 var itemDto = new ItemDto(item.Id, item.Nome, item.Descrizione, item.Prezzo, item.Quantita);
+
+                try
+                {
+                    await magazzino.SendItemsListAsync();
+                    Console.WriteLine("store_db aggiornato con successo.");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Errore durante l'aggiornamento di store_db: {ex.Message}");
+                }
 
                 // Restituisci un "Created" con la locazione dell'oggetto appena creato
                 return CreatedAtAction(nameof(GetById), new { id = item.Id }, itemDto);
@@ -114,6 +148,16 @@ namespace Magazzino.WebApi
                 // Salva le modifiche nel database in modo asincrono
                 await connection.UpdateItemAsync(existingItem);
 
+                try
+                {
+                    await magazzino.SendItemsListAsync();
+                    Console.WriteLine("store_db aggiornato con successo.");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Errore durante l'aggiornamento di store_db: {ex.Message}");
+                }
+
                 // Restituisce NoContent se l'operazione è andata a buon fine
                 return Ok();
             }
@@ -143,6 +187,16 @@ namespace Magazzino.WebApi
 
                 // Rimuovi l'item dal database
                 await connection.DeleteItemAsync(id);
+
+                try
+                {
+                    await magazzino.SendItemsListAsync();
+                    Console.WriteLine("store_db aggiornato con successo.");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Errore durante l'aggiornamento di store_db: {ex.Message}");
+                }
 
                 // Restituisci NoContent se l'operazione è andata a buon fine
                 return Ok();

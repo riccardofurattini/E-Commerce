@@ -1,5 +1,7 @@
 ﻿using Store.Shared;
 using Npgsql;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace Store.Repository
 {
@@ -20,9 +22,16 @@ namespace Store.Repository
         // Metodo per recuperare gli articoli dal database
         public async Task SincronizzaArticoli(List<Articolo> items)
         {
-            await connection.OpenAsync(); // Apri la connessione
+            if (connection.State != System.Data.ConnectionState.Open)
+            {
+                await connection.OpenAsync(); // Apri la connessione solo se non è già aperta
+                Console.WriteLine("Connesso con successo al database");
+            }
 
             // Salva gli articoli nel database
+            var querydelete = "DELETE FROM articoli;";
+            using var commanddelete = new NpgsqlCommand(querydelete, connection);
+            await commanddelete.ExecuteNonQueryAsync();
             foreach (var item in items)
             {
                 var query = @"
@@ -114,6 +123,7 @@ namespace Store.Repository
                     command.ExecuteNonQuery(); // Esegui la query
                 }
             }
+            Dispose();
         }
 
         // Dispose per chiudere correttamente la connessione
