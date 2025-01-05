@@ -85,7 +85,7 @@ namespace Store.Repository
 
         public async Task<List<Articolo>> GetArticoli()
         {
-            var articoli = new List<Articolo>(); // Lista da restituire
+            var articoli = new List<Articolo>();
             try
             {
                 if (connection.State != System.Data.ConnectionState.Open)
@@ -98,13 +98,10 @@ namespace Store.Repository
                 // Eseguire una query per selezionare tutti gli articoli
                 using (var cmd = new NpgsqlCommand("SELECT Id, Nome, Descrizione, Prezzo FROM articoli", connection))
                 {
-                    // Esegui la query in modalità asincrona
                     using (var reader = await cmd.ExecuteReaderAsync())
                     {
-                        // Leggere i dati restituiti dalla query
-                        while (await reader.ReadAsync()) // Usa ReadAsync per la lettura asincrona
+                        while (await reader.ReadAsync())
                         {
-                            // Creare un nuovo oggetto Item per ogni riga
                             var articolo = new Articolo
                             {
                                 Id = reader.GetGuid(reader.GetOrdinal("Id")),
@@ -112,18 +109,15 @@ namespace Store.Repository
                                 Descrizione = reader.GetString(reader.GetOrdinal("Descrizione")),
                                 Prezzo = reader.GetDouble(reader.GetOrdinal("Prezzo")),
                             };
-
-                            // Aggiungere l'oggetto Item alla lista
                             articoli.Add(articolo);
                         }
                     }
                 }
 
-                return articoli; // Restituisci la lista di oggetti Item
+                return articoli;
             }
             catch (Exception ex)
             {
-                // Gestire eventuali errori di connessione
                 Console.WriteLine($"Errore di connessione: {ex.Message}");
                 return null;
             }
@@ -141,19 +135,16 @@ namespace Store.Repository
                 }
 
 
-                // Eseguire una query per selezionare un articolo in base all'ID
                 using (var cmd = new NpgsqlCommand("SELECT Id, Nome, Descrizione, Prezzo FROM articoli WHERE Id = @Id", connection))
                 {
                     // Aggiungi il parametro per evitare SQL Injection
                     cmd.Parameters.AddWithValue("@Id", id);
 
-                    // Esegui la query in modalità asincrona
                     using (var reader = await cmd.ExecuteReaderAsync())
                     {
                         // Verifica se la query ha restituito almeno una riga
                         if (await reader.ReadAsync())
                         {
-                            // Leggi i dati restituiti dalla query
                             item = new Articolo
                             {
                                 Id = reader.GetGuid(reader.GetOrdinal("Id")),
@@ -213,7 +204,7 @@ namespace Store.Repository
 
         public async Task<List<Guid>> GetCarrelli()
         {
-            var carrelli = new List<Guid>(); // Lista da restituire
+            var carrelli = new List<Guid>(); // Lista Guid di carrelli da restituire
             try
             {
                 if (connection.State != System.Data.ConnectionState.Open)
@@ -222,15 +213,11 @@ namespace Store.Repository
                     Console.WriteLine("Connesso con successo al database");
                 }
 
-
-                // Eseguire una query per selezionare tutti gli articoli
                 using (var cmd = new NpgsqlCommand("SELECT IdCarrello FROM carrello GROUP BY IdCarrello", connection))
                 {
-                    // Esegui la query in modalità asincrona
                     using (var reader = await cmd.ExecuteReaderAsync())
                     {
-                        // Leggere i dati restituiti dalla query
-                        while (await reader.ReadAsync()) // Usa ReadAsync per la lettura asincrona
+                        while (await reader.ReadAsync())
                         {
 
                             Guid carrello = reader.GetGuid(reader.GetOrdinal("IdCarrello"));
@@ -240,17 +227,14 @@ namespace Store.Repository
                     }
                 }
 
-                return carrelli; // Restituisci la lista di oggetti Item
+                return carrelli;
             }
             catch (Exception ex)
             {
-                // Gestire eventuali errori di connessione
                 Console.WriteLine($"Errore di connessione: {ex.Message}");
                 return null;
             }
         }
-
-
 
         public async Task<bool> EsisteCarrello(Guid idCarrello)
         {
@@ -311,8 +295,6 @@ namespace Store.Repository
         {
             try
             {
-
-
                 // Aggiungi l'articolo al carrello
                 if (connection.State != System.Data.ConnectionState.Open)
                 {
@@ -337,9 +319,10 @@ namespace Store.Repository
             }
         }
 
-        public async Task<List<Articolo>> GetArticoliByCarrello(Guid idCarrello)
+        public async Task<List<Carrello>> GetArticoliByCarrello(Guid idCarrello)
         {
-            var articoli = new List<Articolo>(); // Lista da restituire
+            var carrelli = new List<Carrello>(); // Lista che conterrà gli articoli con la quantità
+
             try
             {
                 if (connection.State != System.Data.ConnectionState.Open)
@@ -348,9 +331,9 @@ namespace Store.Repository
                     Console.WriteLine("Connesso con successo al database");
                 }
 
-                // Esegui una query per ottenere gli articoli del carrello
+                // Esegui una query per ottenere gli articoli del carrello e la loro quantità
                 using (var cmd = new NpgsqlCommand(@"
-                    SELECT a.Id, a.Nome, a.Descrizione, a.Prezzo
+                    SELECT a.Id, a.Nome, a.Descrizione, a.Prezzo, c.Quantita
                     FROM articoli a
                     JOIN carrello c ON c.IdArticolo = a.Id
                     WHERE c.IdCarrello = @IdCarrello", connection))
@@ -364,30 +347,34 @@ namespace Store.Repository
                         // Leggere i dati restituiti dalla query
                         while (await reader.ReadAsync()) // Usa ReadAsync per la lettura asincrona
                         {
-                            // Creare un nuovo oggetto Articolo per ogni riga
-                            var articolo = new Articolo
+                            var carrello = new Carrello
                             {
-                                Id = reader.GetGuid(reader.GetOrdinal("Id")),
-                                Nome = reader.GetString(reader.GetOrdinal("Nome")),
-                                Descrizione = reader.IsDBNull(reader.GetOrdinal("Descrizione")) ? null : reader.GetString(reader.GetOrdinal("Descrizione")),
-                                Prezzo = reader.GetDouble(reader.GetOrdinal("Prezzo"))
+                                IdCarrello = idCarrello,
+                                articolo = new Articolo
+                                {
+                                    Id = reader.GetGuid(reader.GetOrdinal("Id")),
+                                    Nome = reader.GetString(reader.GetOrdinal("Nome")),
+                                    Descrizione = reader.IsDBNull(reader.GetOrdinal("Descrizione")) ? null : reader.GetString(reader.GetOrdinal("Descrizione")),
+                                    Prezzo = reader.GetDouble(reader.GetOrdinal("Prezzo"))
+                                },
+                                Quantita = reader.GetInt32(reader.GetOrdinal("Quantita"))
                             };
 
-                            // Aggiungere l'oggetto Articolo alla lista
-                            articoli.Add(articolo);
+                            carrelli.Add(carrello);
                         }
                     }
                 }
 
-                return articoli; // Restituisci la lista di articoli
+                return carrelli; // Restituisci la lista di carrelli
             }
             catch (Exception ex)
             {
-                // Gestire eventuali errori di connessione
                 Console.WriteLine($"Errore di connessione: {ex.Message}");
                 return null;
             }
         }
+
+
 
 
         public async Task<bool> EditCarrello(Guid idCarrello, Guid idArticolo, int quantita)
@@ -416,6 +403,33 @@ namespace Store.Repository
                 Console.WriteLine($"Errore di connessione: {ex.Message}");
                 return false;
             }
+        }
+
+        public async Task<bool> EsisteArticoloNelCarrello(Guid idCarrello, Guid idArticolo)
+        {
+            try
+            {
+                if (connection.State != System.Data.ConnectionState.Open)
+                {
+                    await connection.OpenAsync(); // Apri la connessione solo se non è già aperta
+                    Console.WriteLine("Connesso con successo al database");
+                }
+
+                var query = "SELECT 1 FROM carrello WHERE IdCarrello = @IdCarrello AND IdArticolo = @IdArticolo LIMIT 1";
+                using (var command = new NpgsqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("IdCarrello", idCarrello);
+                    command.Parameters.AddWithValue("IdArticolo", idArticolo);
+                    var result = await command.ExecuteScalarAsync();
+                    return result != null;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Errore di connessione: {ex.Message}");
+                return false;
+            }
+
         }
 
 

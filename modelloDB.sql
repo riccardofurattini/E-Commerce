@@ -21,7 +21,7 @@ CREATE TABLE articoli (
     Id UUID PRIMARY KEY,  
     Nome VARCHAR(100) NOT NULL,    
     Descrizione VARCHAR(255),  
-    Prezzo NUMERIC(10, 2) NOT NULL  -- Precisione per rappresentare importi monetari
+    Prezzo NUMERIC(10, 2) NOT NULL
 );
 
 CREATE TABLE carrello (

@@ -49,9 +49,7 @@ services:
         ipv4_address: 192.168.1.4
 
   magazzino:
-    build:
-      context: ./Magazzino
-      dockerfile: Dockerfile
+    image: magazzino-image
     container_name: magazzino
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -78,10 +76,8 @@ services:
       my-network:
         ipv4_address: 192.168.1.6
 
-  store:
-    build:
-      context: ./Store
-      dockerfile: Dockerfile
+  sstore:
+    image: store-image
     container_name: store
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -92,15 +88,16 @@ services:
     networks:
       my-network:
         ipv4_address: 192.168.1.7
+
  # Servizio Adminer per la gestione dei database via web
   adminer:
     image: adminer:4.8.1
     container_name: adminer
     ports:
-      - "2431:8080"  # Mappa la porta 2431 dell'host alla porta 8080 del container
+      - "2431:8080"  
     environment:
       TZ: Europe/Rome
-      ADMINER_DEFAULT_SERVER: magazzino-db  # Nome del container PostgreSQL di Magazzino
+      ADMINER_DEFAULT_SERVER: magazzino-db
     networks:
       my-network:
         ipv4_address: 192.168.1.8

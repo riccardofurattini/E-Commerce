@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Mvc;
 using Store.Repository;
 using Store.Shared;
 
@@ -28,15 +29,32 @@ namespace Store.WebApi
         [HttpGet("{idCarrello}")]
         public async Task<ActionResult<CarrelloDto>> GetById(Guid idCarrello)
         {
-            var articoli = await connection.GetArticoliByCarrello(idCarrello);
-            if (articoli == null || articoli.Count == 0)
+            // Recupera gli articoli e le rispettive quantità dal carrello
+            var articoliQuantita = await connection.GetArticoliByCarrello(idCarrello);
+
+            if (articoliQuantita == null || articoliQuantita.Count == 0)
             {
                 return NotFound("Carrello vuoto o non trovato.");
             }
 
-            var articoliDto = articoli.Select(item => new ArticoloDto(item.Id, item.Nome, item.Descrizione, item.Prezzo)).ToList();
-            return Ok(articoliDto);
+            // Crea una lista di articoli con la rispettiva quantità
+            var articoliDto = articoliQuantita.Select(item => new CarrelloDto(
+                idCarrello,
+                new ArticoloDto(
+                    item.articolo.Id,
+                    item.articolo.Nome,
+                    item.articolo.Descrizione,
+                    item.articolo.Prezzo
+                ),
+                item.Quantita // Aggiungi la quantità per ogni articolo
+            )).ToList();
+
+            // Poiché CarrelloDto è una lista di carrelli, non c'è bisogno di un singolo oggetto
+            return Ok(articoliDto); // Restituisce la lista di carrelli con i rispettivi articoli e quantità
         }
+
+
+
 
         // Metodo per aggiungere un articolo al carrello
         [HttpPost("{idCarrello}/articolo/{idArticolo}/quantita/{Quantita}")]
@@ -63,6 +81,34 @@ namespace Store.WebApi
 
             return BadRequest("Errore nell'aggiungere l'articolo al carrello.");
         }
+
+        [HttpPut("{idCarrello}/articolo/{idArticolo}/quantita/{quantita}")]
+        public async Task<IActionResult> UpdateQuantita(Guid idCarrello, Guid idArticolo, int quantita)
+        {
+            // Verifica se il carrello esiste
+            bool carrelloEsiste = await connection.EsisteCarrello(idCarrello);
+            if (!carrelloEsiste)
+            {
+                return NotFound("Carrello non trovato.");
+            }
+
+            // Verifica se l'articolo esiste nel carrello
+            var articoloEsiste = await connection.EsisteArticoloNelCarrello(idCarrello, idArticolo);
+            if (!articoloEsiste)
+            {
+                return NotFound("Articolo non trovato nel carrello.");
+            }
+
+            // Aggiorna la quantità dell'articolo nel carrello
+            bool aggiornato = await connection.EditCarrello(idCarrello, idArticolo, quantita);
+            if (aggiornato)
+            {
+                return Ok("Quantità dell'articolo aggiornata con successo.");
+            }
+
+            return BadRequest("Errore nell'aggiornamento della quantità dell'articolo.");
+        }
+
 
         // Metodo per eliminare un carrello
         [HttpDelete("{idCarrello}")]
