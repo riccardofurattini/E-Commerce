@@ -14,14 +14,14 @@ namespace Store.WebApi
         [HttpGet]
         public async Task<IActionResult> Get()
         {
-            List<Articolo> items = await connection.GetCarrelli();
+            List<Guid> items = await connection.GetCarrelli();
             if (items == null || !items.Any())
             {
                 return NotFound("Nessun carrello trovato.");
             }
-            var articoliDto = items.Select(item => new ArticoloDto(item.Id, item.Nome, item.Descrizione, item.Prezzo)).ToList();
 
-            return Ok(articoliDto);
+
+            return Ok(items.ToList());
         }
 
         // Metodo per ottenere un carrello per id
@@ -40,9 +40,9 @@ namespace Store.WebApi
 
         // Metodo per aggiungere un articolo al carrello
         [HttpPost("{idCarrello}/articolo/{idArticolo}/quantita/{Quantita}")]
-        public async Task<IActionResult> AddById(Guid idCarrello, Guid idarticolo,int Quantita)
+        public async Task<IActionResult> AddById(Guid idCarrello, Guid idArticolo, int Quantita)
         {
-            var articoliDto = await connection.GetArticoloById(idarticolo);
+            var articoliDto = await connection.GetArticoloById(idArticolo);
             // Verifica se il carrello esiste già, altrimenti crealo
             bool carrelloEsiste = await connection.EsisteCarrello(idCarrello);
             if (!carrelloEsiste)

@@ -26,6 +26,6 @@ CREATE TABLE articoli (
 
 CREATE TABLE carrello (
     IdCarrello UUID NOT NULL,
-    IdArticolo UUID NOT NULL REFERENCES articoli(Id) UNIQUE,   
+    IdArticolo UUID NOT NULL REFERENCES articoli(Id),   
     Quantita INT NOT NULL
 );

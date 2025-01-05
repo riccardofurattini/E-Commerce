@@ -28,26 +28,60 @@ namespace Store.Repository
                 Console.WriteLine("Connesso con successo al database");
             }
 
-            // Salva gli articoli nel database
-            var querydelete = "DELETE FROM articoli;";
-            using var commanddelete = new NpgsqlCommand(querydelete, connection);
-            await commanddelete.ExecuteNonQueryAsync();
-            foreach (var item in items)
+            // Inizia una transazione per garantire la consistenza
+            using var transaction = await connection.BeginTransactionAsync();
+
+            try
             {
-                var query = @"
-                    INSERT INTO articoli (Id, Nome, Descrizione, Prezzo)
-                    VALUES (@Id, @Nome, @Descrizione, @Prezzo)
-                    ON CONFLICT (Id) DO NOTHING;"; // Evita duplicati
+                // Step 1: Aggiorna o inserisce gli articoli
+                foreach (var item in items)
+                {
+                    var query = @"
+                        INSERT INTO articoli (Id, Nome, Descrizione, Prezzo)
+                        VALUES (@Id, @Nome, @Descrizione, @Prezzo)
+                        ON CONFLICT (Id) DO UPDATE
+                        SET Nome = EXCLUDED.Nome,
+                            Descrizione = EXCLUDED.Descrizione,
+                            Prezzo = EXCLUDED.Prezzo;";
 
-                using var command = new NpgsqlCommand(query, connection);
-                command.Parameters.AddWithValue("Id", item.Id);
-                command.Parameters.AddWithValue("Nome", item.Nome);
-                command.Parameters.AddWithValue("Descrizione", item.Descrizione ?? (object)DBNull.Value);
-                command.Parameters.AddWithValue("Prezzo", item.Prezzo);
+                    using var command = new NpgsqlCommand(query, connection, transaction);
+                    command.Parameters.AddWithValue("Id", item.Id);
+                    command.Parameters.AddWithValue("Nome", item.Nome);
+                    command.Parameters.AddWithValue("Descrizione", item.Descrizione ?? (object)DBNull.Value);
+                    command.Parameters.AddWithValue("Prezzo", item.Prezzo);
 
-                await command.ExecuteNonQueryAsync();
+                    await command.ExecuteNonQueryAsync();
+                }
+
+                // Step 2: Elimina articoli dal carrello che non sono più presenti nella lista
+                var idsToKeep = string.Join(",", items.Select(i => $"'{i.Id}'"));
+                var deleteFromCartQuery = $@"
+                    DELETE FROM carrello
+                    WHERE IdArticolo NOT IN ({idsToKeep});";
+
+                using var deleteCartCommand = new NpgsqlCommand(deleteFromCartQuery, connection, transaction);
+                await deleteCartCommand.ExecuteNonQueryAsync();
+
+                // Step 3: Elimina articoli dalla tabella articoli che non sono più nella lista
+                var deleteFromArticlesQuery = $@"
+                    DELETE FROM articoli
+                    WHERE Id NOT IN ({idsToKeep});";
+
+                using var deleteArticlesCommand = new NpgsqlCommand(deleteFromArticlesQuery, connection, transaction);
+                await deleteArticlesCommand.ExecuteNonQueryAsync();
+
+                // Conferma la transazione
+                await transaction.CommitAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Errore durante la sincronizzazione: {ex.Message}");
+                await transaction.RollbackAsync();
+                throw;
             }
         }
+
+
 
         public async Task<List<Articolo>> GetArticoli()
         {
@@ -91,7 +125,7 @@ namespace Store.Repository
             {
                 // Gestire eventuali errori di connessione
                 Console.WriteLine($"Errore di connessione: {ex.Message}");
-                return null; 
+                return null;
             }
         }
 
@@ -157,7 +191,7 @@ namespace Store.Repository
 
                 CREATE TABLE IF NOT EXISTS carrello (
                     IdCarrello UUID NOT NULL,
-                    IdArticolo UUID NOT NULL REFERENCES articoli(Id) UNIQUE,   
+                    IdArticolo UUID NOT NULL REFERENCES articoli(Id),   
                     Quantita INT NOT NULL
                 );";
 
@@ -166,7 +200,7 @@ namespace Store.Repository
                     command.ExecuteNonQuery(); // Esegui la query
                 }
             }
-            
+
         }
 
         // Dispose per chiudere correttamente la connessione
@@ -177,9 +211,9 @@ namespace Store.Repository
 
         //metodi per gestire il carrello
 
-        public async Task<List<Articolo>> GetCarrelli()
+        public async Task<List<Guid>> GetCarrelli()
         {
-            var articoli = new List<Articolo>(); // Lista da restituire
+            var carrelli = new List<Guid>(); // Lista da restituire
             try
             {
                 if (connection.State != System.Data.ConnectionState.Open)
@@ -190,7 +224,7 @@ namespace Store.Repository
 
 
                 // Eseguire una query per selezionare tutti gli articoli
-                using (var cmd = new NpgsqlCommand("SELECT Id FROM carrello GROUP BY Id", connection))
+                using (var cmd = new NpgsqlCommand("SELECT IdCarrello FROM carrello GROUP BY IdCarrello", connection))
                 {
                     // Esegui la query in modalità asincrona
                     using (var reader = await cmd.ExecuteReaderAsync())
@@ -198,19 +232,15 @@ namespace Store.Repository
                         // Leggere i dati restituiti dalla query
                         while (await reader.ReadAsync()) // Usa ReadAsync per la lettura asincrona
                         {
-                            // Creare un nuovo oggetto Item per ogni riga
-                            var articolo = new Articolo
-                            {
-                                Id = reader.GetGuid(reader.GetOrdinal("Id"))
-                            };
 
-                            // Aggiungere l'oggetto Item alla lista
-                            articoli.Add(articolo);
+                            Guid carrello = reader.GetGuid(reader.GetOrdinal("IdCarrello"));
+
+                            carrelli.Add(carrello);
                         }
                     }
                 }
-                
-                return articoli; // Restituisci la lista di oggetti Item
+
+                return carrelli; // Restituisci la lista di oggetti Item
             }
             catch (Exception ex)
             {
@@ -281,7 +311,7 @@ namespace Store.Repository
         {
             try
             {
-                
+
 
                 // Aggiungi l'articolo al carrello
                 if (connection.State != System.Data.ConnectionState.Open)
