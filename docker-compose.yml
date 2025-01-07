@@ -49,7 +49,9 @@ services:
         ipv4_address: 192.168.1.4
 
   magazzino:
-    image: magazzino-image
+    build:
+      context: ./Magazzino
+      dockerfile: Dockerfile
     container_name: magazzino
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -76,8 +78,10 @@ services:
       my-network:
         ipv4_address: 192.168.1.6
 
-  sstore:
-    image: store-image
+  store:
+    build:
+      context: ./Store
+      dockerfile: Dockerfile
     container_name: store
     environment:
       ASPNETCORE_ENVIRONMENT: Development
