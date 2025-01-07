@@ -28,8 +28,11 @@ else
 // Inizializza il database
 using (var scope = app.Services.CreateScope())
 {
+
     var dbConnection = scope.ServiceProvider.GetRequiredService<DbConnection>();
-    dbConnection.InitializeDatabase();
+    await dbConnection.InitializeDatabase();
+
+
 }
 
 // Configura i middleware dell'applicazione

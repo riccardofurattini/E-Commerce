@@ -19,6 +19,9 @@ namespace Store.Repository
             connection = new NpgsqlConnection(connectionString);
         }
 
+
+
+
         // Metodo per recuperare gli articoli dal database
         public async Task SincronizzaArticoli(List<Articolo> items)
         {
@@ -166,33 +169,54 @@ namespace Store.Repository
             }
         }
 
-        public void InitializeDatabase()
+        public async Task InitializeDatabase()
         {
-            using (var connection = new NpgsqlConnection(connectionString))
+            int maxRetries = 5;
+            int delay = 1000; // 1 secondo
+            for (int i = 0; i < maxRetries; i++)
             {
-                connection.Open();
-
-                string createTablesQuery = @"
-                CREATE TABLE IF NOT EXISTS articoli (
-                    Id UUID PRIMARY KEY,  
-                    Nome VARCHAR(100) NOT NULL,    
-                    Descrizione VARCHAR(255),  
-                    Prezzo NUMERIC(10, 2) NOT NULL  -- Precisione per rappresentare importi monetari
-                );
-
-                CREATE TABLE IF NOT EXISTS carrello (
-                    IdCarrello UUID NOT NULL,
-                    IdArticolo UUID NOT NULL REFERENCES articoli(Id),   
-                    Quantita INT NOT NULL
-                );";
-
-                using (var command = new NpgsqlCommand(createTablesQuery, connection))
+                try
                 {
-                    command.ExecuteNonQuery(); // Esegui la query
+                    if (connection.State != System.Data.ConnectionState.Open)
+                    {
+                        await connection.OpenAsync();
+                        Console.WriteLine("Connesso con successo al database");
+                        break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Errore di connessione, tentativo {i + 1}: {ex.Message}");
+                    if (i == maxRetries - 1)
+                    {
+                        throw;
+                    }
+                    await Task.Delay(delay);
                 }
             }
 
+
+            string createTablesQuery = @"
+            CREATE TABLE IF NOT EXISTS articoli (
+                Id UUID PRIMARY KEY,  
+                Nome VARCHAR(100) NOT NULL,    
+                Descrizione VARCHAR(255),  
+                Prezzo NUMERIC(10, 2) NOT NULL  
+            );
+
+            CREATE TABLE IF NOT EXISTS carrello (
+                IdCarrello UUID NOT NULL,
+                IdArticolo UUID NOT NULL REFERENCES articoli(Id),   
+                Quantita INT NOT NULL
+            );";
+
+            // Usa la connessione già aperta
+            using (var command = new NpgsqlCommand(createTablesQuery, connection))
+            {
+                await command.ExecuteNonQueryAsync();
+            }
         }
+
 
         // Dispose per chiudere correttamente la connessione
         public void Dispose()
