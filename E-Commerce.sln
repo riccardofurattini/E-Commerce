@@ -7,10 +7,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Magazzino", "Magazzino\Maga
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Store", "Store\Store.csproj", "{B653C750-0B0A-4696-9AAC-2951C276DD2E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pagamento", "Pagamento\Pagamento.csproj", "{6F3B3CDA-50B7-485F-98A6-B8D486B59A9A}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fornitore", "Fornitore\Fornitore.csproj", "{5393627B-3D28-4FF5-81DD-AB24C22D684D}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

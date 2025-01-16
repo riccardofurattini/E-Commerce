@@ -9,8 +9,9 @@ namespace Store.ClientHttp
     public class StoreConsumer : BackgroundService
     {
         private readonly IConsumer<Null, string> _consumer;
+        private readonly IServiceProvider _serviceProvider;
 
-        public StoreConsumer()
+        public StoreConsumer(IServiceProvider serviceProvider)
         {
             var config = new ConsumerConfig
             {
@@ -19,12 +20,12 @@ namespace Store.ClientHttp
                 AutoOffsetReset = AutoOffsetReset.Earliest
             };
             _consumer = new ConsumerBuilder<Null, string>(config).Build();
+            _serviceProvider = serviceProvider;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _consumer.Subscribe("magazzino_items");
-            DbConnection connection = new DbConnection();
 
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -60,7 +61,30 @@ namespace Store.ClientHttp
                             return articolo;
                         }).ToList();
 
-                        await connection.SincronizzaArticoli(articoliList);
+                        // Utilizzo del DbContext per sincronizzare gli articoli
+                        using (var scope = _serviceProvider.CreateScope())
+                        {
+                            var dbContext = scope.ServiceProvider.GetRequiredService<StoreDbContext>();
+
+                            foreach (var articolo in articoliList)
+                            {
+                                var existingArticolo = dbContext.Articoli.FirstOrDefault(a => a.Id == articolo.Id);
+                                if (existingArticolo != null)
+                                {
+                                    // Aggiorna l'articolo esistente
+                                    existingArticolo.Nome = articolo.Nome;
+                                    existingArticolo.Descrizione = articolo.Descrizione;
+                                    existingArticolo.Prezzo = articolo.Prezzo;
+                                }
+                                else
+                                {
+                                    // Aggiungi un nuovo articolo
+                                    dbContext.Articoli.Add(articolo);
+                                }
+                            }
+
+                            await dbContext.SaveChangesAsync(stoppingToken);
+                        }
 
                         // Log degli articoli sincronizzati
                         Console.WriteLine(JsonConvert.SerializeObject(articoliList));
@@ -79,7 +103,6 @@ namespace Store.ClientHttp
                 await Task.Delay(1000, stoppingToken);
             }
         }
-
 
         public override async Task StopAsync(CancellationToken stoppingToken)
         {
