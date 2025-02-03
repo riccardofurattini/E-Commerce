@@ -64,26 +64,11 @@ namespace Store.ClientHttp
                         // Utilizzo del DbContext per sincronizzare gli articoli
                         using (var scope = _serviceProvider.CreateScope())
                         {
-                            var dbContext = scope.ServiceProvider.GetRequiredService<StoreDbContext>();
+                            var dbConnection = scope.ServiceProvider.GetRequiredService<DbConnection>();
 
-                            foreach (var articolo in articoliList)
-                            {
-                                var existingArticolo = dbContext.Articoli.FirstOrDefault(a => a.Id == articolo.Id);
-                                if (existingArticolo != null)
-                                {
-                                    // Aggiorna l'articolo esistente
-                                    existingArticolo.Nome = articolo.Nome;
-                                    existingArticolo.Descrizione = articolo.Descrizione;
-                                    existingArticolo.Prezzo = articolo.Prezzo;
-                                }
-                                else
-                                {
-                                    // Aggiungi un nuovo articolo
-                                    dbContext.Articoli.Add(articolo);
-                                }
-                            }
+                            await dbConnection.SincronizzaArticoli(articoliList);
 
-                            await dbContext.SaveChangesAsync(stoppingToken);
+                            //await dbContext.SaveChangesAsync(stoppingToken);
                         }
 
                         // Log degli articoli sincronizzati

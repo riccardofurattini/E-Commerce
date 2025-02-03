@@ -6,8 +6,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Aggiungi i servizi necessari per l'applicazione
 builder.Services.AddHttpClient();
+
+
 builder.Services.AddScoped<DbConnection>(); // Cambia DbConnection a Scoped
 builder.Services.AddHostedService<StoreConsumer>(); // Registra il servizio hostato
+builder.Services.AddScoped<MagazzinoHttpClient>();
 builder.Services.AddDbContext<StoreDbContext>(options =>
     options.UseNpgsql("Host=store-db;Username=store_user;Password=p4ssw0rD;Database=store_db;Port=5432"));
 

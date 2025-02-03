@@ -7,4 +7,5 @@ namespace Magazzino.Shared
     public record CreateItemDto([Required] string Nome, string Descrizione, [Range(0.01, 999999)] double Prezzo, int Quantita);
 
     public record UpdateItemDto([Required] string Nome, string Descrizione, [Range(0.01, 999999)] double Prezzo, int Quantita);
+    public record ModificaQuantitaDto([Required] Guid id, [Required] int Quantita);
 }

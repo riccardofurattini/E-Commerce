@@ -1,7 +1,7 @@
-﻿using Magazzino.ClientHttp;
-using Magazzino.Repository;
+﻿using Magazzino.Repository;
 using Magazzino.Shared;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Magazzino.WebApi
 {
@@ -9,201 +9,155 @@ namespace Magazzino.WebApi
     [ApiController]
     public class Items : ControllerBase
     {
-        // Crea l'istanza della connessione
-        ItemsConnection connection = new ItemsConnection();
-        MagazzinoProducer magazzino = new MagazzinoProducer();
+        private readonly ItemsConnection _itemsConnection;
 
+        // Iniettiamo ItemsConnection tramite Dependency Injection
+        public Items(ItemsConnection itemsConnection)
+        {
+            _itemsConnection = itemsConnection;
+        }
 
+        // GET api/items
         [HttpGet]
         public async Task<IActionResult> Get()
         {
-            List<Item> items = await connection.GetItemsAsync();
-
-            // Trasforma la lista di Item in ItemDto
-            var itemsDto = items.Select(item => new ItemDto(item.Id, item.Nome, item.Descrizione, item.Prezzo, item.Quantita)).ToList();
-
-
             try
             {
-                await magazzino.SendItemsListAsync();
-                Console.WriteLine("store_db aggiornato con successo.");
+                // Usa ItemsConnection per ottenere gli articoli dal database
+                var items = await _itemsConnection.GetItemsAsync();
+
+                if (items == null || !items.Any())
+                {
+                    return NotFound(); // Se non ci sono articoli, restituisce NotFound
+                }
+
+                // Trasformazione della lista di articoli in ItemDto
+                var itemsDto = items.Select(item => new ItemDto(item.Id, item.Nome, item.Descrizione, item.Prezzo, item.Quantita)).ToList();
+
+                // Restituisci gli articoli come JSON
+                return Ok(itemsDto);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Errore durante l'aggiornamento di store_db: {ex.Message}");
+                Console.WriteLine($"Errore durante il recupero degli articoli: {ex.Message}");
+                return StatusCode(500, "Errore interno del server");
             }
-
-            // Restituisci la lista di ItemDto come una risposta JSON
-            return Ok(itemsDto);
         }
 
-
-
+        // GET api/items/{id}
         [HttpGet("{id}")]
         public async Task<ActionResult<ItemDto>> GetById(Guid id)
         {
-            // Recupera l'articolo dal database
-            var item = await connection.GetItemById(id); 
-
-            if (item == null)
-            {
-                return NotFound(); // Se l'articolo non esiste, restituisci NotFound
-            }
-
-            // Mappa l'oggetto Item in un ItemDto
-            var itemDto = new ItemDto(item.Id, item.Nome, item.Descrizione, item.Prezzo, item.Quantita);
-
             try
             {
-                await magazzino.SendItemsListAsync();
-                Console.WriteLine("store_db aggiornato con successo.");
+                // Usa ItemsConnection per ottenere l'articolo per ID
+                var item = await _itemsConnection.GetItemByIdAsync(id);
+
+                if (item == null)
+                {
+                    return NotFound(); // Se l'articolo non esiste, restituisce NotFound
+                }
+
+                // Mappa l'oggetto Item in un ItemDto
+                var itemDto = new ItemDto(item.Id, item.Nome, item.Descrizione, item.Prezzo, item.Quantita);
+
+                // Restituisci l'ItemDto trovato
+                return Ok(itemDto);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Errore durante l'aggiornamento di store_db: {ex.Message}");
+                Console.WriteLine($"Errore durante il recupero dell'articolo: {ex.Message}");
+                return StatusCode(500, "Errore interno del server");
             }
-
-
-            // Restituisci l'ItemDto trovato
-            return Ok(itemDto);
         }
 
-
+        // POST api/items
         [HttpPost]
         public async Task<ActionResult<ItemDto>> Post(CreateItemDto createItemDto)
         {
-            // Validazione del modello
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            // Mappatura da CreateItemDto a Item
-            var item = new Item
-            {
-                Id = Guid.NewGuid(),
-                Nome = createItemDto.Nome,
-                Descrizione = createItemDto.Descrizione,
-                Prezzo = createItemDto.Prezzo,
-                Quantita = createItemDto.Quantita
-            };
-
             try
             {
-                // Salva l'item nel database in modo asincrono
-                await connection.AddItemAsync(item);
+                // Validazione del modello
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+
+                // Mappatura da CreateItemDto a Item
+                var item = new Item
+                {
+                    Id = Guid.NewGuid(),
+                    Nome = createItemDto.Nome,
+                    Descrizione = createItemDto.Descrizione,
+                    Prezzo = createItemDto.Prezzo,
+                    Quantita = createItemDto.Quantita
+                };
+
+                // Usa ItemsConnection per aggiungere l'articolo
+                await _itemsConnection.AddItemAsync(item);
 
                 // Mappa l'oggetto Item in ItemDto per la risposta
                 var itemDto = new ItemDto(item.Id, item.Nome, item.Descrizione, item.Prezzo, item.Quantita);
-
-                try
-                {
-                    await magazzino.SendItemsListAsync();
-                    Console.WriteLine("store_db aggiornato con successo.");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Errore durante l'aggiornamento di store_db: {ex.Message}");
-                }
 
                 // Restituisci un "Created" con la locazione dell'oggetto appena creato
                 return CreatedAtAction(nameof(GetById), new { id = item.Id }, itemDto);
             }
             catch (Exception ex)
             {
-                // Gestione degli errori (nel caso di errore durante il salvataggio)
                 Console.WriteLine($"Errore durante il salvataggio dell'articolo: {ex.Message}");
                 return StatusCode(500, "Errore interno del server"); // Risposta 500 in caso di errore
             }
         }
 
-
-
+        // PUT api/items/{id}
         [HttpPut("{id}")]
         public async Task<IActionResult> Put(Guid id, UpdateItemDto updateItemDto)
         {
-            // Verifica che il modello sia valido
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
             try
             {
-                // Recupera l'item esistente dal database
-                var existingItem = await connection.GetItemById(id);
-
-                // Se l'item non esiste, restituisce NotFound
-                if (existingItem == null)
+                // Verifica che il modello sia valido
+                if (!ModelState.IsValid)
                 {
-                    return NotFound();
+                    return BadRequest(ModelState);
                 }
 
-                // Applica le modifiche
-                existingItem.Nome = updateItemDto.Nome;
-                existingItem.Descrizione = updateItemDto.Descrizione;
-                existingItem.Prezzo = updateItemDto.Prezzo;
-                existingItem.Quantita = updateItemDto.Quantita;
-
-                // Salva le modifiche nel database in modo asincrono
-                await connection.UpdateItemAsync(existingItem);
-
-                try
+                // Mappatura da UpdateItemDto a Item
+                var item = new Item
                 {
-                    await magazzino.SendItemsListAsync();
-                    Console.WriteLine("store_db aggiornato con successo.");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Errore durante l'aggiornamento di store_db: {ex.Message}");
-                }
+                    Id = id,
+                    Nome = updateItemDto.Nome,
+                    Descrizione = updateItemDto.Descrizione,
+                    Prezzo = updateItemDto.Prezzo,
+                    Quantita = updateItemDto.Quantita
+                };
+
+                // Usa ItemsConnection per aggiornare l'articolo
+                await _itemsConnection.UpdateItemAsync(item);
 
                 // Restituisce NoContent se l'operazione è andata a buon fine
-                return Ok();
+                return NoContent();
             }
             catch (Exception ex)
             {
-                // Gestione degli errori in caso di problemi nel processo
                 Console.WriteLine($"Errore durante l'aggiornamento dell'articolo: {ex.Message}");
                 return StatusCode(500, "Errore interno del server");
             }
         }
 
-
-
+        // DELETE api/items/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(Guid id)
         {
             try
             {
-                // Recupera l'item esistente dal database
-                var existingItem = await connection.GetItemById(id);
-
-                // Se l'item non esiste, restituisce NotFound
-                if (existingItem == null)
-                {
-                    return NotFound();
-                }
-
-                // Rimuovi l'item dal database
-                await connection.DeleteItemAsync(id);
-
-                try
-                {
-                    await magazzino.SendItemsListAsync();
-                    Console.WriteLine("store_db aggiornato con successo.");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Errore durante l'aggiornamento di store_db: {ex.Message}");
-                }
+                // Usa ItemsConnection per eliminare l'articolo
+                await _itemsConnection.DeleteItemAsync(id);
 
                 // Restituisci NoContent se l'operazione è andata a buon fine
-                return Ok();
+                return NoContent();
             }
             catch (Exception ex)
             {
-                // Gestione degli errori in caso di problemi nel processo
                 Console.WriteLine($"Errore durante la cancellazione dell'articolo: {ex.Message}");
                 return StatusCode(500, "Errore interno del server");
             }
@@ -211,6 +165,4 @@ namespace Magazzino.WebApi
 
 
     }
-
-
 }

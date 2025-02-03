@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Store.Shared;
 
 namespace Store.Repository
@@ -10,10 +6,14 @@ namespace Store.Repository
     public class DbConnection : IDisposable
     {
         private readonly StoreDbContext _context;
+        private readonly HttpClient _httpClient;
+        private readonly MagazzinoHttpClient _magazzinoHttpClient;
 
-        public DbConnection(StoreDbContext context)
+        public DbConnection(StoreDbContext context, HttpClient httpClient, MagazzinoHttpClient magazzinoHttpClient)
         {
             _context = context;
+            _httpClient = httpClient;
+            _magazzinoHttpClient = magazzinoHttpClient;
         }
 
         public async Task SincronizzaArticoli(List<Articolo> items)
@@ -52,18 +52,6 @@ namespace Store.Repository
             }
         }
 
-        public async Task<List<Articolo>> GetArticoli()
-        {
-            try
-            {
-                return await _context.Articoli.ToListAsync();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Errore durante il recupero degli articoli: {ex.Message}");
-                return null;
-            }
-        }
 
         public async Task<Articolo> GetArticoloById(Guid id)
         {
@@ -78,18 +66,6 @@ namespace Store.Repository
             }
         }
 
-        public async Task InitializeDatabase()
-        {
-            try
-            {
-                await _context.Database.EnsureCreatedAsync();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Errore durante l'inizializzazione del database: {ex.Message}");
-                throw;
-            }
-        }
 
         public async Task<List<Guid>> GetCarrelli()
         {
@@ -104,25 +80,19 @@ namespace Store.Repository
             }
         }
 
-        public async Task<bool> EsisteCarrello(Guid idCarrello)
-        {
-            try
-            {
-                return await _context.Carrelli.AnyAsync(c => c.IdCarrello == idCarrello);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Errore durante la verifica del carrello: {ex.Message}");
-                return false;
-            }
-        }
-
         public async Task<bool> DeleteCarrello(Guid idCarrello)
         {
             try
             {
                 var items = _context.Carrelli.Where(c => c.IdCarrello == idCarrello);
-                _context.Carrelli.RemoveRange(items);
+                foreach (var item in items)
+                {
+                    var result = await DeleteArticolo(idCarrello, item.articolo.Id);
+                    if (!result)
+                    {
+                        return false;
+                    }
+                }
                 await _context.SaveChangesAsync();
                 return true;
             }
@@ -137,6 +107,10 @@ namespace Store.Repository
         {
             try
             {
+                // Verifica la disponibilità dell'articolo nel magazzino tramite la chiamata HTTP
+
+
+
                 // Controlla se l'articolo è già nel carrello
                 var existingCarrello = await _context.Carrelli
                     .FirstOrDefaultAsync(c => c.IdCarrello == idCarrello && c.articolo.Id == idArticolo);
@@ -156,8 +130,23 @@ namespace Store.Repository
                     await _context.Carrelli.AddAsync(carrello);
                 }
 
-                await _context.SaveChangesAsync();
-                return true;
+                var isAvailable = await _magazzinoHttpClient.CheckItemAvailability(idArticolo, quantita);
+
+                if (!isAvailable)
+                {
+                    // Se la quantità non è disponibile, restituisce errore
+                    Console.WriteLine("Errore: Quantità insufficiente nel magazzino.");
+                    return false;
+                }
+                else
+                {
+                    await _context.SaveChangesAsync();// Salva i cambiamenti nel carrello
+                    return true;
+                }
+
+
+
+
             }
             catch (Exception ex)
             {
@@ -190,7 +179,23 @@ namespace Store.Repository
                 var carrello = await _context.Carrelli.FirstOrDefaultAsync(c => c.IdCarrello == idCarrello && c.articolo.Id == idArticolo);
                 if (carrello == null) return false;
 
+                await _magazzinoHttpClient.CheckItemAvailability(idArticolo, -1 * (carrello.Quantita));
+                var isAvailable = await _magazzinoHttpClient.CheckItemAvailability(idArticolo, quantita);
+
+                if (!isAvailable)
+                {
+                    // Se la quantità non è disponibile, restituisce errore
+                    Console.WriteLine("Errore: Quantità insufficiente nel magazzino.");
+                    await _magazzinoHttpClient.CheckItemAvailability(idArticolo, carrello.Quantita);
+                    return false;
+                }
+
                 carrello.Quantita = quantita;
+
+
+
+
+
                 await _context.SaveChangesAsync();
                 return true;
             }
@@ -201,18 +206,6 @@ namespace Store.Repository
             }
         }
 
-        public async Task<bool> EsisteArticoloNelCarrello(Guid idCarrello, Guid idArticolo)
-        {
-            try
-            {
-                return await _context.Carrelli.AnyAsync(c => c.IdCarrello == idCarrello && c.articolo.Id == idArticolo);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Errore durante la verifica dell'articolo nel carrello: {ex.Message}");
-                return false;
-            }
-        }
 
         public async Task<bool> DeleteArticolo(Guid idCarrello, Guid idArticolo)
         {
@@ -221,7 +214,11 @@ namespace Store.Repository
                 var carrello = await _context.Carrelli.FirstOrDefaultAsync(c => c.IdCarrello == idCarrello && c.articolo.Id == idArticolo);
                 if (carrello == null) return false;
 
+
+                await _magazzinoHttpClient.CheckItemAvailability(idArticolo, -1 * (carrello.Quantita));
                 _context.Carrelli.Remove(carrello);
+
+
                 await _context.SaveChangesAsync();
                 return true;
             }

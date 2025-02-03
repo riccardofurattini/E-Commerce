@@ -1,244 +1,167 @@
-﻿using Magazzino.Shared;
-using Npgsql;
+﻿using Magazzino.ClientHttp;
+using Magazzino.Shared;
+using Microsoft.EntityFrameworkCore;
 
 namespace Magazzino.Repository
 {
     public class ItemsConnection : IDisposable
     {
-        private NpgsqlConnection connection;
-        private readonly string connectionString = "Host=magazzino-db;Username=magazzino_user;Password=p4ssw0rD;Database=magazzino_db;Port=5432";
+        private readonly MagazzinoContext _context;
+        private readonly MagazzinoProducer _producer;
 
-        //"Host=magazzino-db;Username=magazzino_user;Password=p4ssw0rD;Database=magazzino_db;Port=5432";
-
-
-        // Costruttore
-        public ItemsConnection()
+        public ItemsConnection(MagazzinoContext context, MagazzinoProducer producer)
         {
-            connection = new NpgsqlConnection(connectionString);
+            _context = context;
+            _producer = producer;
         }
 
-        // Metodo per recuperare gli articoli dal database
+        // Metodo per recuperare tutti gli articoli
         public async Task<List<Item>> GetItemsAsync()
         {
-            var items = new List<Item>(); // Lista da restituire
             try
             {
-                if (connection.State != System.Data.ConnectionState.Open)
-                {
-                    await connection.OpenAsync(); // Apri la connessione solo se non è già aperta
-                    Console.WriteLine("Connesso con successo al database");
-                }
-                
-
-                // Eseguire una query per selezionare tutti gli articoli
-                using (var cmd = new NpgsqlCommand("SELECT Id, Nome, Descrizione, Prezzo, Quantita FROM items", connection))
-                {
-                    // Esegui la query in modalità asincrona
-                    using (var reader = await cmd.ExecuteReaderAsync())
-                    {
-                        // Leggere i dati restituiti dalla query
-                        while (await reader.ReadAsync()) // Usa ReadAsync per la lettura asincrona
-                        {
-                            // Creare un nuovo oggetto Item per ogni riga
-                            var item = new Item
-                            {
-                                Id = reader.GetGuid(reader.GetOrdinal("Id")),
-                                Nome = reader.GetString(reader.GetOrdinal("Nome")),
-                                Descrizione = reader.GetString(reader.GetOrdinal("Descrizione")),
-                                Prezzo = reader.GetDouble(reader.GetOrdinal("Prezzo")),
-                                Quantita = reader.GetInt32(reader.GetOrdinal("Quantita"))
-                            };
-
-                            // Aggiungere l'oggetto Item alla lista
-                            items.Add(item);
-                        }
-                    }
-                }
-
-                return items; // Restituisci la lista di oggetti Item
+                var items = await _context.Items.ToListAsync();
+                await _producer.SendItemsListAsync(); // Invoca il producer dopo aver recuperato gli articoli
+                return items;
             }
             catch (Exception ex)
             {
-                // Gestire eventuali errori di connessione
-                Console.WriteLine($"Errore di connessione: {ex.Message}");
-                return null; // Puoi anche restituire una lista vuota, se preferisci
+                Console.WriteLine($"Errore: {ex.Message}");
+                return null;
             }
         }
 
-        public async Task<Item> GetItemById(Guid id)
+        // Metodo per recuperare un articolo per ID
+        public async Task<Item> GetItemByIdAsync(Guid id)
         {
-            Item item = null; // Inizializza item a null in caso di errore
             try
             {
-                if (connection.State != System.Data.ConnectionState.Open)
-                {
-                    await connection.OpenAsync(); // Apri la connessione solo se non è già aperta
-                    Console.WriteLine("Connesso con successo al database");
-                }
-                
-
-                // Eseguire una query per selezionare un articolo in base all'ID
-                using (var cmd = new NpgsqlCommand("SELECT Id, Nome, Descrizione, Prezzo, Quantita FROM items WHERE Id = @Id", connection))
-                {
-                    // Aggiungi il parametro per evitare SQL Injection
-                    cmd.Parameters.AddWithValue("@Id", id);
-
-                    // Esegui la query in modalità asincrona
-                    using (var reader = await cmd.ExecuteReaderAsync())
-                    {
-                        // Verifica se la query ha restituito almeno una riga
-                        if (await reader.ReadAsync())
-                        {
-                            // Leggi i dati restituiti dalla query
-                            item = new Item
-                            {
-                                Id = reader.GetGuid(reader.GetOrdinal("Id")),
-                                Nome = reader.GetString(reader.GetOrdinal("Nome")),
-                                Descrizione = reader.GetString(reader.GetOrdinal("Descrizione")),
-                                Prezzo = reader.GetDouble(reader.GetOrdinal("Prezzo")),
-                                Quantita = reader.GetInt32(reader.GetOrdinal("Quantita"))
-                            };
-                        }
-                    }
-                }
-
+                var item = await _context.Items.FindAsync(id);
+                await _producer.SendItemsListAsync(); // Invoca il producer dopo aver recuperato l'articolo
                 return item;
             }
             catch (Exception ex)
             {
-                // Gestire eventuali errori di connessione
-                Console.WriteLine($"Errore di connessione: {ex.Message}");
-                return null; // Restituisci null se c'è un errore
+                Console.WriteLine($"Errore: {ex.Message}");
+                return null;
             }
         }
 
+        // Metodo per aggiungere un articolo
         public async Task AddItemAsync(Item item)
         {
             try
             {
-                if (connection.State != System.Data.ConnectionState.Open)
-                {
-                    await connection.OpenAsync(); // Apri la connessione solo se non è già aperta
-                    Console.WriteLine("Connesso con successo al database");
-                }
-                using (var cmd = new NpgsqlCommand("INSERT INTO items (Id, Nome, Descrizione, Prezzo, Quantita) VALUES (@Id, @Nome, @Descrizione, @Prezzo, @Quantita)", connection))
-                {
-                    // Aggiungi i parametri
-                    cmd.Parameters.AddWithValue("@Id", item.Id);
-                    cmd.Parameters.AddWithValue("@Nome", item.Nome);
-                    cmd.Parameters.AddWithValue("@Descrizione", item.Descrizione);
-                    cmd.Parameters.AddWithValue("@Prezzo", item.Prezzo);
-                    cmd.Parameters.AddWithValue("@Quantita", item.Quantita);
-
-                    // Esegui la query asincrona
-                    await cmd.ExecuteNonQueryAsync();
-                }
+                await _context.AddAsync(item);
+                await _context.SaveChangesAsync(); // Salva l'articolo nel database
+                await _producer.SendItemsListAsync(); // Invoca il producer dopo aver aggiunto l'articolo
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Errore durante l'inserimento dell'articolo: {ex.Message}");
-                throw; // Rilancia l'errore per gestirlo nel metodo chiamante
+                throw;
             }
         }
 
+        // Metodo per aggiornare un articolo
         public async Task UpdateItemAsync(Item item)
         {
             try
             {
-                if (connection.State != System.Data.ConnectionState.Open)
-                {
-                    await connection.OpenAsync(); // Apri la connessione solo se non è già aperta
-                    Console.WriteLine("Connesso con successo al database");
-                }
-
-                // Query per aggiornare l'item
-                using (var cmd = new NpgsqlCommand("UPDATE items SET Nome = @Nome, Descrizione = @Descrizione, Prezzo = @Prezzo, Quantita = @Quantita WHERE Id = @Id", connection))
-                {
-                    // Aggiungi i parametri alla query
-                    cmd.Parameters.AddWithValue("@Nome", item.Nome);
-                    cmd.Parameters.AddWithValue("@Descrizione", item.Descrizione);
-                    cmd.Parameters.AddWithValue("@Prezzo", item.Prezzo);
-                    cmd.Parameters.AddWithValue("@Quantita", item.Quantita);
-                    cmd.Parameters.AddWithValue("@Id", item.Id);
-
-                    // Esegui la query in modo asincrono
-                    await cmd.ExecuteNonQueryAsync();
-                }
+                _context.Items.Update(item); // Aggiorna l'articolo nel database
+                await _context.SaveChangesAsync(); // Salva le modifiche
+                await _producer.SendItemsListAsync(); // Invoca il producer dopo l'aggiornamento
             }
             catch (Exception ex)
             {
-                // Gestione dell'errore
                 Console.WriteLine($"Errore durante l'aggiornamento dell'articolo: {ex.Message}");
-                throw; // Rilancia l'errore per la gestione successiva
+                throw;
             }
         }
+
+        // Metodo per eliminare un articolo
         public async Task DeleteItemAsync(Guid id)
         {
             try
             {
-                // Assicurati che la connessione sia aperta
-                if (connection.State != System.Data.ConnectionState.Open)
+                var item = await _context.Items.FindAsync(id);
+                if (item != null)
                 {
-                    await connection.OpenAsync(); // Apri la connessione solo se non è già aperta
-                    Console.WriteLine("Connesso con successo al database");
-                }
-
-                // Query per rimuovere l'item dal database
-                using (var cmd = new NpgsqlCommand("DELETE FROM items WHERE Id = @Id", connection))
-                {
-                    // Aggiungi il parametro alla query
-                    cmd.Parameters.AddWithValue("@Id", id);
-
-                    // Esegui la query in modo asincrono
-                    await cmd.ExecuteNonQueryAsync();
+                    _context.Items.Remove(item); // Rimuove l'articolo dal database
+                    await _context.SaveChangesAsync(); // Salva le modifiche
+                    await _producer.SendItemsListAsync(); // Invoca il producer dopo la rimozione
                 }
             }
             catch (Exception ex)
             {
-                // Gestione dell'errore
                 Console.WriteLine($"Errore durante la cancellazione dell'articolo: {ex.Message}");
-                throw; // Rilancia l'errore per la gestione successiva
+                throw;
             }
         }
 
-
-        public void InitializeDatabase()
+        public async Task<bool> ControlloQuantitaAsync(Guid id, int quantita)
         {
-            using (var connection = new NpgsqlConnection(connectionString))
+            try
             {
-                connection.Open();
-
-                string createTableQuery = @"
-                CREATE TABLE IF NOT EXISTS items (
-                    Id UUID PRIMARY KEY,
-                    Nome VARCHAR(100),
-                    Descrizione VARCHAR(255),
-                    Prezzo DOUBLE PRECISION,
-                    Quantita INT
-                );
-
-                INSERT INTO items (Id, Nome, Descrizione, Prezzo, Quantita)
-                VALUES
-                    ('d4d1f8b7-8f2f-4c42-bb4d-f0d028cf9b3f', 'Mele', 'Frutta', 0.99, 500),
-                    ('cb1a7c1e-559a-4de7-9a42-b388db30a4a1', 'Pere', 'Frutta', 1.50, 400),
-                    ('e4c87b13-b19b-4ff2-95b8-d8306f16c0a7', 'Banane', 'Frutta', 2.50, 700)
-                ON CONFLICT DO NOTHING;  
-            ";
-
-                using (var command = new NpgsqlCommand(createTableQuery, connection))
+                if (quantita >= 0)
                 {
-                    command.ExecuteNonQuery(); // Esegui la query
+                    // Recupera l'articolo dal database
+                    var item = await _context.Items.FindAsync(id);
+
+                    if (item == null)
+                    {
+                        Console.WriteLine($"Articolo con ID {id} non trovato.");
+                        return false;
+                    }
+
+                    // Controlla se la quantità disponibile è sufficiente
+                    if (item.Quantita >= quantita)
+                    {
+                        // Sottrai la quantità richiesta
+                        item.Quantita -= quantita;
+                        await _context.SaveChangesAsync();
+                        await _producer.SendItemsListAsync();
+                        return true;
+                    }
+                    else
+                    {
+                        // La quantità richiesta è maggiore della disponibilità
+                        Console.WriteLine($"Quantità insufficiente per l'articolo {item.Nome}. Disponibile: {item.Quantita}, Richiesta: {quantita}");
+                        return false;
+                    }
                 }
+                else//in caso di cancellazione dell'articolo dal carrello
+                {
+                    // Recupera l'articolo dal database
+                    var item = await _context.Items.FindAsync(id);
+
+                    if (item == null)
+                    {
+                        Console.WriteLine($"Articolo con ID {id} non trovato.");
+                        return false;
+                    }
+                    quantita *= -1;
+                    // aggiungi la quantità richiesta
+                    item.Quantita += quantita;
+                    await _context.SaveChangesAsync();
+                    await _producer.SendItemsListAsync();
+                    return true;
+
+                }
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Errore durante l'aggiornamento della quantità per l'articolo {id}: {ex.Message}");
+                return false;
             }
         }
 
 
-        // Dispose per chiudere correttamente la connessione
+        // Dispose per liberare le risorse
         public void Dispose()
         {
-            connection?.Dispose();
+            _context?.Dispose();
         }
-            
-        
     }
 }

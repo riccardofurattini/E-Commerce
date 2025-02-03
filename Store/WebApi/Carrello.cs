@@ -58,7 +58,7 @@ namespace Store.WebApi
 
             if (!result)
             {
-                return NotFound("Articolo non trovato o errore durante l'aggiunta.");
+                return NotFound("Articolo non trovato o quantità insufficiente.");
             }
 
             return Ok("Articolo aggiunto o aggiornato nel carrello.");
@@ -72,7 +72,7 @@ namespace Store.WebApi
 
             if (!result)
             {
-                return NotFound("Articolo non trovato nel carrello.");
+                return NotFound("Articolo non trovato nel carrello o quantità disponibile insufficiente");
             }
 
             return Ok("Quantità dell'articolo aggiornata con successo.");
